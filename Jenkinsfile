@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        OPENAI_API_KEY = credentials('openai_api_key')
+        OPENAI_API_KEY = credentials('openai-api-key')
     }
 
     stages {
