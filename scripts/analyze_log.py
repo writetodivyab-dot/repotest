@@ -13,7 +13,8 @@ KNOWN_ERRORS = {
 
 def analyze_log(log_file, output_file=None):
     """Analyze Jenkins build log, detect known issues, and call OpenAI."""
-    with open(log_file, "r", encoding="utf-8") as f:
+    # Open file with UTF-8 decoding and replace invalid characters
+    with open(log_file, "r", encoding="utf-8", errors="replace") as f:
         log_content = f.read()
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -71,8 +72,5 @@ if __name__ == "__main__":
 
     log_file = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else None
-
-    if output_file:
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     analyze_log(log_file, output_file)
