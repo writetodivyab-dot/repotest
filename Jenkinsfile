@@ -23,10 +23,12 @@ pipeline {
                     def buildLog = "${env.WORKSPACE}\\build_logs\\build_output_${env.BUILD_NUMBER}.txt"
                     powershell """
                         mkdir -Force build_logs | Out-Null
-                        try {
-                            python src/app.py *>&1 | Tee-Object -FilePath '${buildLog}'
-                            exit 0
-                        } catch {
+
+                        # Run Python and capture output
+                        python src/app.py *>&1 | Tee-Object -FilePath '${buildLog}'
+
+                        # Check exit code
+                        if (\$LASTEXITCODE -ne 0) {
                             Write-Host "Build failed — captured logs to ${buildLog}" -ForegroundColor Red
                             exit 1
                         }
