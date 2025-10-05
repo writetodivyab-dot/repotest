@@ -21,7 +21,7 @@ pipeline {
                 echo "Running build..."
                 powershell """
                     mkdir -Force build_logs | Out-Null
-                    \$buildLog = "build_logs/build_output_${env:BUILD_NUMBER}.txt"
+                    \$buildLog = "build_logs/build_output_\${env:BUILD_NUMBER}.txt"
                     try {
                         python src/app.py *>&1 | Tee-Object -FilePath \$buildLog
                         exit 0
@@ -40,9 +40,9 @@ pipeline {
             steps {
                 echo "Analyzing failed build logs using OpenAI..."
                 powershell """
-                    \$logFile = "build_logs/build_output_${env:BUILD_NUMBER}.txt"
-                    \$analysisFile = "build_logs/ai_analysis_${env:BUILD_NUMBER}.txt"
-                    python scripts/analyze_log.py \$logFile > \$analysisFile
+                    \$logFile = "build_logs/build_output_\${env:BUILD_NUMBER}.txt"
+                    \$analysisFile = "build_logs/ai_analysis_\${env:BUILD_NUMBER}.txt"
+                    python scripts/analyze_log.py \$logFile \$analysisFile *>&1 | Tee-Object -FilePath \$analysisFile
                 """
             }
         }
