@@ -5,6 +5,10 @@ pipeline {
         OPENAI_API_KEY = credentials('openai-api-key')
     }
 
+    options {
+        ansiColor('xterm')  // Enables color in Jenkins console
+    }
+
     stages {
         stage('Setup') {
             steps {
@@ -19,17 +23,19 @@ pipeline {
         stage('Build') {
             steps {
                 echo "Running build..."
-                powershell """
-                    mkdir -Force build_logs | Out-Null
-                    \$buildLog = "build_logs/build_output_\${env:BUILD_NUMBER}.txt"
-                    try {
-                        python src/app.py *>&1 | Tee-Object -FilePath \$buildLog
-                        exit 0
-                    } catch {
-                        Write-Host "Build failed — captured logs to \$buildLog"
-                        exit 1
-                    }
-                """
+                script {
+                    def logFile = "${env.WORKSPACE}\\build_logs\\build_output_${env.BUILD_NUMBER}.txt"
+                    powershell """
+                        mkdir -Force build_logs | Out-Null
+                        try {
+                            python src/app.py *>&1 | Tee-Object -FilePath '${logFile}'
+                            exit 0
+                        } catch {
+                            Write-Host "Build failed — captured logs to ${logFile}"
+                            exit 1
+                        }
+                    """
+                }
             }
         }
 
@@ -39,11 +45,20 @@ pipeline {
             }
             steps {
                 echo "Analyzing failed build logs using OpenAI..."
-                powershell """
-                    \$logFile = "build_logs/build_output_\${env:BUILD_NUMBER}.txt"
-                    \$analysisFile = "build_logs/ai_analysis_\${env:BUILD_NUMBER}.txt"
-                    python scripts/analyze_log.py \$logFile \$analysisFile *>&1 | Tee-Object -FilePath \$analysisFile
-                """
+                script {
+                    def logFile = "${env.WORKSPACE}\\build_logs\\build_output_${env.BUILD_NUMBER}.txt"
+                    def analysisFile = "${env.WORKSPACE}\\build_logs\\ai_analysis_${env.BUILD_NUMBER}.txt"
+
+                    powershell """
+                        Write-Host "Starting AI analysis..." -ForegroundColor Yellow
+                        python scripts/analyze_log.py '${logFile}' '${analysisFile}'
+                        if (Test-Path '${analysisFile}') {
+                            Write-Host "`n===== AI Analysis Saved To: ${analysisFile} =====`n" -ForegroundColor Green
+                        } else {
+                            Write-Host "⚠️  AI analysis file not created." -ForegroundColor Red
+                        }
+                    """
+                }
             }
         }
 
@@ -52,6 +67,12 @@ pipeline {
                 echo "Archiving build and analysis logs..."
                 archiveArtifacts artifacts: 'build_logs/*.txt', fingerprint: true
             }
+        }
+    }
+
+    post {
+        always {
+            echo "\u001B[36mBuild complete. Check artifacts for AI insights.\u001B[0m"
         }
     }
 }

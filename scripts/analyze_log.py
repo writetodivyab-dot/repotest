@@ -10,8 +10,8 @@ def analyze_log(log_file, output_file=None):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     prompt = f"""
-    Analyze the following Jenkins build log. Identify the root cause of the failure,
-    summarize it in plain English, and suggest 1–2 possible fixes:
+    Analyze this Jenkins build log. Identify the root cause of failure,
+    summarize it clearly for developers, and suggest specific fixes:
 
     {log_content}
     """
@@ -19,7 +19,7 @@ def analyze_log(log_file, output_file=None):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a CI/CD assistant that helps diagnose build failures."},
+            {"role": "system", "content": "You are a CI/CD assistant that diagnoses build failures and suggests fixes."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=400
@@ -27,11 +27,11 @@ def analyze_log(log_file, output_file=None):
 
     analysis = response.choices[0].message.content.strip()
 
-    print("\n=== 🤖 AI Build Log Analysis ===\n")
-    print(analysis)
-    print("\n===============================\n")
+    # 🎨 Colored console output
+    print("\033[93m\n=== 🤖 AI Build Log Analysis ===\033[0m\n")
+    print(f"\033[91m{analysis}\033[0m")
+    print("\033[93m\n===============================\033[0m\n")
 
-    # Save to file if output_file provided
     if output_file:
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         with open(output_file, "w", encoding="utf-8") as f:
