@@ -18,18 +18,19 @@ pipeline {
 
         stage('Build') {
             steps {
-                // catchError ensures pipeline continues even if build fails
-                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    echo "Running build..."
-                    def buildLog = "${env.WORKSPACE}\\build_logs\\build_output_${env.BUILD_NUMBER}.txt"
-                    powershell """
-                        mkdir -Force build_logs | Out-Null
-                        python src/app.py *>&1 | Tee-Object -FilePath '${buildLog}'
-                        if (\$LASTEXITCODE -ne 0) {
-                            Write-Host "Build failed — captured logs to ${buildLog}" -ForegroundColor Red
-                            exit 1
-                        }
-                    """
+                script {
+                    // Use catchError to continue pipeline even if build fails
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        def buildLog = "${env.WORKSPACE}\\build_logs\\build_output_${env.BUILD_NUMBER}.txt"
+                        powershell """
+                            mkdir -Force build_logs | Out-Null
+                            python src/app.py *>&1 | Tee-Object -FilePath '${buildLog}'
+                            if (\$LASTEXITCODE -ne 0) {
+                                Write-Host "Build failed — captured logs to ${buildLog}" -ForegroundColor Red
+                                exit 1
+                            }
+                        """
+                    }
                 }
             }
         }
@@ -46,7 +47,7 @@ pipeline {
                         if (Test-Path '${analysisFile}') {
                             Write-Host "✅ AI analysis saved to ${analysisFile}" -ForegroundColor Green
                         } else {
-                            Write-Host "⚠️ AI analysis file not created!" -ForegroundColor Red
+                            Write-Host "⚠️  AI analysis file not created!" -ForegroundColor Red
                         }
                     """
                 }
@@ -55,8 +56,10 @@ pipeline {
 
         stage('Archive Logs') {
             steps {
-                echo "Archiving build and analysis logs..."
-                archiveArtifacts artifacts: 'build_logs/*.txt', fingerprint: true
+                script {
+                    echo "Archiving build and analysis logs..."
+                    archiveArtifacts artifacts: 'build_logs/*.txt', fingerprint: true
+                }
             }
         }
     }
