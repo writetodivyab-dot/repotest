@@ -19,16 +19,17 @@ pipeline {
         stage('Build') {
             steps {
                 echo "Running build..."
-                powershell '''
+                powershell """
                     mkdir -Force build_logs | Out-Null
+                    \$buildLog = "build_logs/build_output_${env:BUILD_NUMBER}.txt"
                     try {
-                        python src/app.py *>&1 | Tee-Object -FilePath build_logs/build_output.txt
+                        python src/app.py *>&1 | Tee-Object -FilePath \$buildLog
                         exit 0
                     } catch {
-                        Write-Host "Build failed — capturing logs"
+                        Write-Host "Build failed — captured logs to \$buildLog"
                         exit 1
                     }
-                '''
+                """
             }
         }
 
@@ -38,9 +39,11 @@ pipeline {
             }
             steps {
                 echo "Analyzing failed build logs using OpenAI..."
-                powershell '''
-                    python scripts/analyze_log.py build_logs/build_output.txt
-                '''
+                powershell """
+                    \$logFile = "build_logs/build_output_${env:BUILD_NUMBER}.txt"
+                    \$analysisFile = "build_logs/ai_analysis_${env:BUILD_NUMBER}.txt"
+                    python scripts/analyze_log.py \$logFile > \$analysisFile
+                """
             }
         }
 
