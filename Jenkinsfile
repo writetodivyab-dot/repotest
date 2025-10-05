@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        OPENAI_API_KEY = credentials('openai_api_key')  // Add in Jenkins > Manage Credentials
+        OPENAI_API_KEY = credentials('openai_api_key')  // Set in Jenkins > Manage Credentials
     }
 
     stages {
@@ -22,7 +22,8 @@ pipeline {
                 powershell '''
                     mkdir -Force build_logs | Out-Null
                     try {
-                        python src/app.py > build_logs/build_output.txt 2>&1
+                        # Run build and capture both console + file output
+                        python src/app.py *>&1 | Tee-Object -FilePath build_logs/build_output.txt
                         exit 0
                     } catch {
                         Write-Host "Build failed — capturing logs"
@@ -47,7 +48,9 @@ pipeline {
 
     post {
         always {
-            echo "Build completed. Check above for AI-powered analysis."
+            echo "Build completed. Archiving build and analysis logs..."
+            archiveArtifacts artifacts: 'build_logs/*.txt', fingerprint: true
+            echo "Logs archived successfully — check the 'Last Successful Artifacts' section."
         }
     }
 }
