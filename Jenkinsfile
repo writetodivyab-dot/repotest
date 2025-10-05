@@ -1,41 +1,53 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    // Make sure you created a Jenkins secret text credential with ID 'openai-api-key'
-    OPENAI_API_KEY = credentials('openai-api-key')
-  }
-
-  stages {
-    stage('Checkout') {
-      steps { checkout scm }
+    environment {
+        OPENAI_API_KEY = credentials('openai_api_key')  // Add in Jenkins > Manage Credentials
     }
 
-    stage('Build') {
-      steps {
-        // Run the PowerShell build script that intentionally fails in this demo
-        powershell 'scripts\\build.ps1'
-      }
-    }
-  }
-
-  post {
-    failure {
-      script {
-        echo "Build failed. Checking for build.log and running AI analysis..."
-        if (fileExists('build.log')) {
-          echo "Found build.log — installing analyzer requirements and running analyzer..."
-
-          // Install Python requirements if necessary (assumes Python & pip are on PATH)
-          // If you don't want to install each run, install once on the agent manually.
-          powershell '''
-            python -m pip install --user -r requirements.txt
-            python scripts\\analyze_log.py build.log
-          '''
-        } else {
-          echo "No build.log found in workspace."
+    stages {
+        stage('Setup') {
+            steps {
+                echo "Installing Python dependencies..."
+                powershell '''
+                    python -m pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
+            }
         }
-      }
+
+        stage('Build') {
+            steps {
+                echo "Running build..."
+                powershell '''
+                    mkdir -Force build_logs | Out-Null
+                    try {
+                        python src/app.py > build_logs/build_output.txt 2>&1
+                        exit 0
+                    } catch {
+                        Write-Host "Build failed — capturing logs"
+                        exit 1
+                    }
+                '''
+            }
+        }
+
+        stage('Analyze Failure') {
+            when {
+                expression { currentBuild.currentResult == 'FAILURE' }
+            }
+            steps {
+                echo "Analyzing failed build logs using OpenAI..."
+                powershell '''
+                    python scripts/analyze_log.py build_logs/build_output.txt
+                '''
+            }
+        }
     }
-  }
+
+    post {
+        always {
+            echo "Build completed. Check above for AI-powered analysis."
+        }
+    }
 }

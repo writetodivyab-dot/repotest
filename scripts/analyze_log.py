@@ -1,44 +1,38 @@
-# scripts/analyze_log.py
+from openai import OpenAI
 import os
 import sys
-import openai
 
-def analyze_log_file(path):
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        log = f.read()
+def analyze_log(log_file):
+    """Reads a Jenkins build log, sends it to the OpenAI API, and prints a human-readable analysis."""
+    with open(log_file, "r", encoding="utf-8") as f:
+        log_content = f.read()
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        print("ERROR: OPENAI_API_KEY is not set in the environment.", file=sys.stderr)
-        sys.exit(2)
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    openai.api_key = api_key
+    prompt = f"""
+    Analyze the following Jenkins build log. Identify the root cause of the failure, 
+    summarize it in plain English, and suggest 1–2 possible fixes:
 
-    prompt = (
-        "You are an expert CI build engineer. Summarize the main reason the build failed from the log "
-        "and provide 3 actionable fixes (ordered). If you cannot determine, provide 3 debugging steps.\n\n"
-        "Build log:\n" + log
+    {log_content}
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a CI/CD assistant that helps diagnose build failures."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=400
     )
 
-    try:
-        resp = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a helpful CI/CD assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.0,
-            max_tokens=600
-        )
-        text = resp["choices"][0]["message"]["content"].strip()
-        print("\n=== AI Analysis ===\n")
-        print(text)
-    except Exception as e:
-        print("LLM call failed:", str(e), file=sys.stderr)
-        sys.exit(3)
+    print("\n=== 🤖 AI Build Log Analysis ===\n")
+    print(response.choices[0].message.content)
+    print("\n===============================\n")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: analyze_log.py <path-to-log>", file=sys.stderr)
+        print("Usage: python analyze_log.py <log_file>")
         sys.exit(1)
-    analyze_log_file(sys.argv[1])
+
+    analyze_log(sys.argv[1])
